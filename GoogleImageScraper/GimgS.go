@@ -6,15 +6,20 @@ import (
         "net/http"
         "io/ioutil"
         "encoding/json"
+		//"reflect"
         //"os"
 )
 
-type Image struct {
-    results map[string]interface{}
+type RespData struct {
+    ResponseData Results
 }
 
-type RespData struct {
-    ResponseData map[string]interface{}
+type Results struct {
+	Results []Image
+}
+
+type Image struct {
+    Url string
 }
 
 func main() {
@@ -24,18 +29,14 @@ func main() {
         log.Fatal(err)
     }
 
-    defer resp.Body.Close();
-
     body, err := ioutil.ReadAll(resp.Body)
-    
-    b, err := json.Marshal(body)
-    //fmt.Println(string(body));
+	resp.Body.Close();
 
     var rpD RespData
-    err = json.Unmarshal(b, &rpD);
-
-    fmt.Println(rpD)
-
+    err = json.Unmarshal(body, &rpD)
+	fmt.Println(rpD)
+	
+	//TODO: Write images from url to disk
 
 }
 
