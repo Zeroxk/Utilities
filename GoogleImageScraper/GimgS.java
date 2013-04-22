@@ -17,12 +17,17 @@ public class GimgS {
 	public static void main(String[] args) {
 		
 		Scanner sc = new Scanner(System.in);
-		String keyword = sc.next();
-		System.out.println("Your keyword is: " + keyword);
+		StringBuilder keyword = new StringBuilder();
+		keyword.append(sc.next());
+		keyword.append("\n");
+		System.out.println("Your keyword is: " + keyword.toString());
 		
 		try {
-			String query = "https://ajax.googleapis.com/ajax/services/search/images?v=1.0&safe=active&q" + keyword;
-			URL url = new URL(query);
+			StringBuilder query = new StringBuilder();
+			query.append("https://ajax.googleapis.com/ajax/services/search/images?v=1.0&safe=active&q=");
+			query.append(keyword);
+			
+			URL url = new URL(query.toString());
 			URLConnection conn = url.openConnection();
 			
 			String line;
@@ -36,13 +41,12 @@ public class GimgS {
 			if( sb.length() > 0) {
 				System.out.println("Parsing JSON");
 				
-				JSONObject jo = new JSONObject(sb.toString());												
-				JSONObject rpD = jo.getJSONObject("responseData");
+				JSONObject jo = new JSONObject(sb.toString()).getJSONObject("responseData");											
 				
-				JSONArray ja = rpD.getJSONArray("results");
-				System.out.println("Done parsing JSON)
+				JSONArray ja = jo.getJSONArray("results");
+				System.out.println("Done parsing JSON\n");
 				
-				System.out.println("Starting image download)
+				System.out.println("Starting image download");
 				for (int i = 0; i < ja.length(); i++) {
 					JSONObject rs = (JSONObject) ja.get(i);
 					System.out.println(rs.getString("url"));
