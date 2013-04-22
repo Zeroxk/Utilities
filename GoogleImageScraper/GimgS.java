@@ -1,4 +1,3 @@
-
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.File;
@@ -17,12 +16,13 @@ public class GimgS {
 
 	public static void main(String[] args) {
 		
-//		Scanner sc = new Scanner(System.in);
-//		String keyword = sc.next();
-//		System.out.println("Your keyword is: " + keyword);
+		Scanner sc = new Scanner(System.in);
+		String keyword = sc.next();
+		System.out.println("Your keyword is: " + keyword);
 		
 		try {
-			URL url = new URL("https://ajax.googleapis.com/ajax/services/search/images?v=1.0&safe=active&q=Red");
+			String query = "https://ajax.googleapis.com/ajax/services/search/images?v=1.0&safe=active&q" + keyword;
+			URL url = new URL(query);
 			URLConnection conn = url.openConnection();
 			
 			String line;
@@ -34,12 +34,15 @@ public class GimgS {
 			}
 			
 			if( sb.length() > 0) {
-				JSONObject jo = new JSONObject(sb.toString());
-				System.out.println(jo.toString());
+				System.out.println("Parsing JSON");
+				
+				JSONObject jo = new JSONObject(sb.toString());												
 				JSONObject rpD = jo.getJSONObject("responseData");
 				
 				JSONArray ja = rpD.getJSONArray("results");
+				System.out.println("Done parsing JSON)
 				
+				System.out.println("Starting image download)
 				for (int i = 0; i < ja.length(); i++) {
 					JSONObject rs = (JSONObject) ja.get(i);
 					System.out.println(rs.getString("url"));
