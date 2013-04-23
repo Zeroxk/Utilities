@@ -44,8 +44,9 @@ func readURL(url string) []byte {
 
 func main() {
 
-	var keyword string
-	fmt.Scanf("%s", &keyword)
+/*	var keyword string
+    fmt.Scanf("%s", &keyword)*/
+keyword := "Golang"
 	fmt.Println("Your keyword is:",keyword,"\n")
 	
     query := "https://ajax.googleapis.com/ajax/services/search/images?v=1.0&safe=active&q=" + keyword
