@@ -16,10 +16,11 @@ public class GimgS {
 
 	public static void main(String[] args) {
 		
-		Scanner sc = new Scanner(System.in);
+		//Scanner sc = new Scanner(System.in);
 		StringBuilder keyword = new StringBuilder();
-		keyword.append(sc.next());
-		keyword.append("\n");
+		//keyword.append(sc.next());
+		//keyword.append("\n");
+        keyword.append("Golang");
 		System.out.println("Your keyword is: " + keyword.toString());
 		
 		try {
@@ -60,6 +61,7 @@ public class GimgS {
 					File f = new File("imgsJava/" + imgName);
 					f.mkdirs();
 					f.createNewFile();
+					String str = imgName.substring(imgName.lastIndexOf(".")+1);
 					ImageIO.write(buffImg, imgName.substring(imgName.lastIndexOf(".")+1), f);
 					
 					System.out.println("Saved to: " + f.getAbsolutePath());
