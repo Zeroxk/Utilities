@@ -16,11 +16,10 @@ public class GimgS {
 
 	public static void main(String[] args) {
 		
-		//Scanner sc = new Scanner(System.in);
+		Scanner sc = new Scanner(System.in);
 		StringBuilder keyword = new StringBuilder();
-		//keyword.append(sc.next());
-		//keyword.append("\n");
-        keyword.append("Golang");
+		keyword.append(sc.next());
+		keyword.append("\n");
 		System.out.println("Your keyword is: " + keyword.toString());
 		
 		try {
