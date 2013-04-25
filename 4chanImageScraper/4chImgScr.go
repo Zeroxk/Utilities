@@ -26,7 +26,7 @@ type Post struct {
     Ext string
 }
 
-//Reads url
+//Reads url, returns url body as byte slice and Last-Modified header
 func readURL(url string) ([]byte, string) {
 
     resp, err := http.Get(url)
@@ -50,6 +50,7 @@ func readURL(url string) ([]byte, string) {
 	return body, resp.Header.Get("Last-Modified")
 }
 
+//Parse JSON into partial Go Thread structure
 func parseJSON(jsonObj []byte, t *Thread) *Thread {
 
 	fmt.Println("Parsing JSON")
@@ -88,15 +89,63 @@ func downloadImages(posts []*Post, board string) {
         }
 
     }
-	fmt.Println("Done downloading images from thread")
+	fmt.Println("Done downloading images from thread\n")
 
+}
+
+//Creates complete Go Thread structure by parsing JSON object from url and adding more info
+func get_Thread(url string) (thread *Thread, json string) {
+
+	tmp := strings.Split(url, "/")
+	
+	thread = new(Thread)	
+	thread.Board = tmp[3]
+	
+	thread.Cooldown = 10
+	
+	json = strings.Join( []string{"http://api.4chan.org/", strings.Join(tmp[3:], "/"), ".json"}, "" )
+	
+	fmt.Println("Reading url")
+	jsonObj, lastMod := readURL(json)
+	fmt.Println("Board is:", thread.Board)
+	fmt.Println("Done reading url\n")
+	thread.Time_rcv = lastMod
+	
+    thread = parseJSON(jsonObj, thread)
+
+    fmt.Println("Thread last modified:", thread.Time_rcv)
+	fmt.Println("Last post is:", strconv.FormatInt(thread.Posts[thread.LastPost].No, 10), "\n")
+	
+	return
+
+}
+
+//Updates a thread
+func update(json string, thread *Thread) {
+
+	jsonObj, lastMod := readURL(json)
+	thread.Time_rcv = lastMod
+			
+	t := parseJSON(jsonObj, thread)
+
+	postsDelta := t.Posts[thread.LastPost+1:]
+	thread.Posts = append(thread.Posts, postsDelta...)
+			
+	thread.LastPost = t.LastPost
+
+	fmt.Println("Thread last modified:", thread.Time_rcv)
+
+	downloadImages(postsDelta, thread.Board)
+	
+	fmt.Println("Last post is:", strconv.FormatInt(thread.Posts[thread.LastPost].No, 10), "\n")
+	
 }
 
 func main() {
 
 	var url, dir string
 	fmt.Scanf("%s\n", &url)
-	fmt.Scanf("%s\n", &dir)
+	fmt.Scanf("%s\n\n", &dir)
 	
 	err := os.Chdir(dir)
 	
@@ -107,30 +156,10 @@ func main() {
 	fmt.Println("Url is:", url)
 	fmt.Println("Changed directory to:", dir, "\n")
 	
-	fmt.Println("Thread is:", url)
-	tmp := strings.Split(url, "/")
+	thread, json := get_Thread(url)
 	
-	thread := new(Thread)	
-	thread.Board = tmp[3]
-	fmt.Println("Board is:", thread.Board, "\n")
-	thread.Cooldown = 10
-	
-	json := strings.Join( []string{"http://api.4chan.org/", strings.Join(tmp[3:], "/"), ".json"}, "" )
-	//fmt.Println(json)
-	
-	fmt.Println("Reading url")
-	jsonObj, lastMod := readURL(json)
-	fmt.Println("Done reading url\n")
-	thread.Time_rcv = lastMod
-	
-    thread = parseJSON(jsonObj, thread)
-
-    fmt.Println("Thread last modified:", thread.Time_rcv, "\n")
-
     downloadImages(thread.Posts, thread.Board)
-	
-	fmt.Println("Last post is:", strconv.FormatInt(thread.Posts[thread.LastPost].No, 10), "\n")
-	
+		
 	for {
 	
 		fmt.Println("Sleeping")
@@ -142,7 +171,6 @@ func main() {
 			log.Fatal(err)
 		}
 		req.Header.Add("If-Modified-Since", thread.Time_rcv)
-		//fmt.Println(req.Header.Get("If-Modified-Since"))
 	
 		r, err := http.DefaultClient.Do(req)
 	
@@ -150,8 +178,6 @@ func main() {
 			log.Fatal(err)
 		}
 	
-		//fmt.Println("Status code:", r.StatusCode)
-		//fmt.Println("Last modified:", r.Header.Get("Last-Modified"))
 		if sc := r.StatusCode; sc == 304 {
 			fmt.Println("Nothing new")
 			thread.Cooldown *=2	
@@ -159,21 +185,8 @@ func main() {
 			fmt.Println("Thread has been updated")
 			thread.Cooldown = 10
 			
-			jsonObj, lastMod = readURL(json)
-			thread.Time_rcv = lastMod
-			
-			t := parseJSON(jsonObj, thread)
-
-			postsDelta := t.Posts[thread.LastPost+1:]
-			thread.Posts = append(thread.Posts, postsDelta...)
-			
-			thread.LastPost = t.LastPost
-
-			fmt.Println("Thread last modified:", thread.Time_rcv, "\n")
-
-			downloadImages(postsDelta, thread.Board)
-	
-			fmt.Println("Last post is:", strconv.FormatInt(thread.Posts[thread.LastPost].No, 10), "\n")
+			update(json, thread)
+						
 		}
 		fmt.Println("Cooldown is:", thread.Cooldown, "\n")
 	
