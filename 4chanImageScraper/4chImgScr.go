@@ -15,9 +15,9 @@ import (
 type Thread struct {
     Posts    []*Post
     Board    string
-    Time_rcv time.Time
+    Time_rcv string
 	Cooldown int64
-	LastPost *Post
+	LastPost int
 }
 
 type Post struct {
@@ -26,12 +26,19 @@ type Post struct {
     Ext string
 }
 
-func readURL(url string) []byte {
+//Reads url
+func readURL(url string) ([]byte, string) {
+
     resp, err := http.Get(url)
 
     if err != nil {
         log.Fatal(err)
     }
+	
+	if resp.StatusCode == 404 {
+		fmt.Println("Thread has died, stopping")
+		os.Exit(0)
+	}
 
     body, err := ioutil.ReadAll(resp.Body)
 
@@ -39,47 +46,38 @@ func readURL(url string) []byte {
     if err != nil {
         log.Fatal(err)
     }
-
-    return body
+		
+	return body, resp.Header.Get("Last-Modified")
 }
 
-//Parse JSON into Go Thread struct
-func parseJSON(jsonObj []byte) *Thread {
+func parseJSON(jsonObj []byte, t *Thread) *Thread {
 
-    fmt.Println("\nParsing JSON")
+	fmt.Println("Parsing JSON")
 	
-	if len(jsonObj) == 0 {  
-		return nil
-	}
-	
-    var t Thread
-    err := json.Unmarshal(jsonObj, &t)
+    err := json.Unmarshal(jsonObj, t)
 
     if err != nil {
             log.Fatal(err)
     }
+	t.LastPost = len(t.Posts)-1
     fmt.Println("Done parsing JSON\n")
-
-    return &t
+	
+	return t
 
 }
 
 //Download thread images
-func downloadImages(posts []*Post, board string) (lastPost *Post) {
+func downloadImages(posts []*Post, board string) {
 
 	fmt.Println("Starting image downloads")
-    for i, p := range(posts) {
-		
-		if i == len(posts)-1 {
-			lastPost = p
-		}
+    for _, p := range(posts) {
 		
         if !(p.Tim == 0) {
-            fmt.Println(strconv.FormatInt(p.Tim, 10), p.Ext)
+            //fmt.Println(strconv.FormatInt(p.Tim, 10), p.Ext)
             url := strings.Join([]string{"http://images.4chan.org/", board, "/src/", strconv.FormatInt(p.Tim, 10), p.Ext}, "")
 			fmt.Println("Downloading image from", url)
 
-			img := readURL(url)
+			img,_ := readURL(url)
 
 			err := ioutil.WriteFile((strconv.FormatInt(p.Tim, 10) + p.Ext), img, 0755)
 			if err != nil {
@@ -92,64 +90,94 @@ func downloadImages(posts []*Post, board string) (lastPost *Post) {
     }
 	fmt.Println("Done downloading images from thread")
 
-	return
-
 }
 
 func main() {
-	url := "http://boards.4chan.org/g/res/33294249"
+
+	var url, dir string
+	fmt.Scanf("%s\n", &url)
+	fmt.Scanf("%s\n", &dir)
+	
+	err := os.Chdir(dir)
+	
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	fmt.Println("Url is:", url)
+	fmt.Println("Changed directory to:", dir, "\n")
+	
 	fmt.Println("Thread is:", url)
 	tmp := strings.Split(url, "/")
-	boardName := tmp[3]
 	
-	json := strings.Join( []string{"http://api.4chan.org/", boardName, "/res/", tmp[5], ".json"}, "" )
-    resp := readURL(json)
+	thread := new(Thread)	
+	thread.Board = tmp[3]
+	fmt.Println("Board is:", thread.Board, "\n")
+	thread.Cooldown = 10
+	
+	json := strings.Join( []string{"http://api.4chan.org/", strings.Join(tmp[3:], "/"), ".json"}, "" )
+	//fmt.Println(json)
+	
+	fmt.Println("Reading url")
+	jsonObj, lastMod := readURL(json)
+	fmt.Println("Done reading url\n")
+	thread.Time_rcv = lastMod
+	
+    thread = parseJSON(jsonObj, thread)
 
-    t := parseJSON(resp)
-	if t == nil {
-		fmt.Println("Thread has died, stopping")
-		os.Exit(0)
-	}
-	t.Board = boardName
-	t.Cooldown = 10
-    fmt.Println("Board is:", t.Board)
-    
-    t.Time_rcv = time.Now()
+    fmt.Println("Thread last modified:", thread.Time_rcv, "\n")
 
-    fmt.Println("Thread received at:", t.Time_rcv)
+    downloadImages(thread.Posts, thread.Board)
+	
+	fmt.Println("Last post is:", strconv.FormatInt(thread.Posts[thread.LastPost].No, 10), "\n")
+	
+	for {
+	
+		fmt.Println("Sleeping")
+		time.Sleep(time.Duration(thread.Cooldown)*time.Second)
+		fmt.Println("Woke up")
+	
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+		req.Header.Add("If-Modified-Since", thread.Time_rcv)
+		//fmt.Println(req.Header.Get("If-Modified-Since"))
+	
+		r, err := http.DefaultClient.Do(req)
+	
+		if err != nil {
+			log.Fatal(err)
+		}
+	
+		//fmt.Println("Status code:", r.StatusCode)
+		//fmt.Println("Last modified:", r.Header.Get("Last-Modified"))
+		if sc := r.StatusCode; sc == 304 {
+			fmt.Println("Nothing new")
+			thread.Cooldown *=2	
+		}else {
+			fmt.Println("Thread has been updated")
+			thread.Cooldown = 10
+			
+			jsonObj, lastMod = readURL(json)
+			thread.Time_rcv = lastMod
+			
+			t := parseJSON(jsonObj, thread)
 
-    t.LastPost = downloadImages(t.Posts, t.Board)
+			postsDelta := t.Posts[thread.LastPost+1:]
+			thread.Posts = append(thread.Posts, postsDelta...)
+			
+			thread.LastPost = t.LastPost
+
+			fmt.Println("Thread last modified:", thread.Time_rcv, "\n")
+
+			downloadImages(postsDelta, thread.Board)
 	
-	fmt.Println("Last post is:", strconv.FormatInt(t.LastPost.No, 10))
+			fmt.Println("Last post is:", strconv.FormatInt(thread.Posts[thread.LastPost].No, 10), "\n")
+		}
+		fmt.Println("Cooldown is:", thread.Cooldown, "\n")
 	
-	//t := time.Now()
-	//url := "http://www.cs.bell-labs.com/who/dmr/" 
-	
-	fmt.Println("Sleeping")
-	time.Sleep(time.Duration(t.Cooldown)*time.Second)
-	fmt.Println("Woke up")
-	
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	req.Header.Add("If-Modified-Since", t.Time_rcv.Format("Mon, 2 Jan 2006 15:04:05 GMT"))
-	//fmt.Println(req.Header.Get("If-Modified-Since"))
-	
-	r, err := http.DefaultClient.Do(req)
-	
-	if err != nil {
-		log.Fatal(err)
 	}
 	
-	fmt.Println("Status code:", r.StatusCode)
-	fmt.Println("Last modified:", r.Header.Get("Last-Modified"))
-	if sc := r.StatusCode; sc == 304 {
-		fmt.Println("Nothing happened")
-	}else {
-		fmt.Println("Something happened")
-	}
-	
-	//fmt.Println("Done downloading images")
 
 }
