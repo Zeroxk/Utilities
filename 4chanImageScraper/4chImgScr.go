@@ -10,6 +10,7 @@ import (
     "strconv"
     "strings"
     "time"
+	//"bufio"
 )
 
 type Thread struct {
@@ -34,11 +35,6 @@ func readURL(url string) ([]byte, string) {
     if err != nil {
         log.Fatal(err)
     }
-	
-	if resp.StatusCode == 404 {
-		fmt.Println("Thread has died, stopping")
-		os.Exit(0)
-	}
 
     body, err := ioutil.ReadAll(resp.Body)
 
@@ -142,9 +138,18 @@ func update(json string, thread *Thread) {
 }
 
 func main() {
+	
+	//input := bufio.NewReader(os.Stdin)
+	fmt.Printf("Url: ")
 
 	var url, dir string
 	fmt.Scanf("%s\n", &url)
+	//url,_ = input.ReadString('\n')
+	fmt.Println(url)
+	
+	fmt.Printf("Directory: ")
+	//dir,_ = input.ReadString('\n')
+	fmt.Println(dir)
 	fmt.Scanf("%s\n\n", &dir)
 	
 	err := os.Chdir(dir)
@@ -178,16 +183,16 @@ func main() {
 			log.Fatal(err)
 		}
 	
-		if sc := r.StatusCode; sc == 304 {
-			fmt.Println("Nothing new")
-			thread.Cooldown *=2	
-		}else {
-			fmt.Println("Thread has been updated")
-			thread.Cooldown = 10
+		switch sc := r.StatusCode; sc {
+			case 404: fmt.Println("Thread has died, fun is over"); os.Exit(0)
 			
-			update(json, thread)
-						
+			case 304: fmt.Println("Nothing new"); thread.Cooldown *=2
+			
+			default: fmt.Println("Thread has been updated")
+					 thread.Cooldown = 10			
+					 update(json, thread)
 		}
+
 		fmt.Println("Cooldown is:", thread.Cooldown, "\n")
 	
 	}
