@@ -10,7 +10,7 @@ import (
     "strconv"
     "strings"
     "time"
-	//"bufio"
+	"bufio"
 )
 
 type Thread struct {
@@ -139,18 +139,21 @@ func update(json string, thread *Thread) {
 
 func main() {
 	
-	//input := bufio.NewReader(os.Stdin)
+	input := bufio.NewReader(os.Stdin)
 	fmt.Printf("Url: ")
 
 	var url, dir string
 	fmt.Scanf("%s\n", &url)
 	//url,_ = input.ReadString('\n')
-	fmt.Println(url)
+	//fmt.Println(url)
 	
 	fmt.Printf("Directory: ")
-	//dir,_ = input.ReadString('\n')
-	fmt.Println(dir)
-	fmt.Scanf("%s\n\n", &dir)
+	dir,_ = input.ReadString('\n')
+	//fmt.Scanf("%s\n\n", &dir)
+	dir = strings.Trim(dir, "\n")
+	dir = strings.TrimSpace(dir)
+	
+	//fmt.Println(dir)
 	
 	err := os.Chdir(dir)
 	
