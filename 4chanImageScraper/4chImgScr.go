@@ -46,8 +46,8 @@ func readURL(url string) ([]byte, string) {
 	return body, resp.Header.Get("Last-Modified")
 }
 
-//Parse JSON into partial Go Thread structure
-func parseJSON(jsonObj []byte, t *Thread) *Thread {
+//Parse JSON and fill into Go Thread struct
+func parseJSON(jsonObj []byte, t *Thread) {
 
 	fmt.Println("Parsing JSON")
 	
@@ -56,10 +56,9 @@ func parseJSON(jsonObj []byte, t *Thread) *Thread {
     if err != nil {
             log.Fatal(err)
     }
-	t.LastPost = len(t.Posts)-1
+	t.LastPost = (len(t.Posts)-1)
     fmt.Println("Done parsing JSON\n")
 	
-	return t
 
 }
 
@@ -107,9 +106,10 @@ func get_Thread(url string) (thread *Thread, json string) {
 	fmt.Println("Done reading url\n")
 	thread.Time_rcv = lastMod
 	
-    thread = parseJSON(jsonObj, thread)
-
+    parseJSON(jsonObj, thread)
+		
     fmt.Println("Thread last modified:", thread.Time_rcv)
+	
 	fmt.Println("Last post is:", strconv.FormatInt(thread.Posts[thread.LastPost].No, 10), "\n")
 	
 	return
@@ -122,17 +122,18 @@ func update(json string, thread *Thread) {
 	jsonObj, lastMod := readURL(json)
 	thread.Time_rcv = lastMod
 			
-	t := parseJSON(jsonObj, thread)
+	t := new(Thread)
+	parseJSON(jsonObj, t)
 
 	postsDelta := t.Posts[thread.LastPost+1:]
-	thread.Posts = append(thread.Posts, postsDelta...)
-			
-	thread.LastPost = t.LastPost
+	fmt.Println(len(postsDelta), "new posts\n")
+	thread.Posts = append(thread.Posts, postsDelta...)				
 
 	fmt.Println("Thread last modified:", thread.Time_rcv)
 
 	downloadImages(postsDelta, thread.Board)
 	
+	thread.LastPost = t.LastPost
 	fmt.Println("Last post is:", strconv.FormatInt(thread.Posts[thread.LastPost].No, 10), "\n")
 	
 }
@@ -187,7 +188,8 @@ func main() {
 		}
 	
 		switch sc := r.StatusCode; sc {
-			case 404: fmt.Println("Thread has died, fun is over"); os.Exit(0)
+			case 404: fmt.Println("Thread died at time: ", time.Now().Format("Sun, 03 Feb 1991 17:30:02 GMT"))
+						os.Exit(0)
 			
 			case 304: fmt.Println("Nothing new"); thread.Cooldown *=2
 			
