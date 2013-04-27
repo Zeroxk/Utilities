@@ -11,6 +11,7 @@ import (
     "strconv"
     "strings"
     "time"
+    "sync"
 )
 
 const (
@@ -83,7 +84,7 @@ func downloadImages(t *Thread) {
             img, _ := readURL(url)
 
             path := strings.Join([]string{t.Dir, `\`, strconv.FormatInt(p.Tim, 10), p.Ext}, "")
-            err := ioutil.WriteFile(path, img, 0755)
+            err := ioutil.WriteFile(path, img, 0644)
             if err != nil {
                 log.Fatal(err)
             }
@@ -148,9 +149,11 @@ func update(json string, thread *Thread) {
 func main() {
 
     input := bufio.NewReader(os.Stdin)
-
+    var wg sync.WaitGroup
+    
     for {
-
+        
+        fmt.Println("Leave inputs empty to signal end of input")
         fmt.Printf("Url: ")
         var url, dir string
         fmt.Scanf("%s\n", &url)
@@ -159,9 +162,15 @@ func main() {
         dir, _ = input.ReadString('\n')
         dir = strings.Trim(dir, "\n")
         dir = strings.TrimSpace(dir)
+        
+        if url == "" && dir == "" {
+            fmt.Println("Empty inputs, stopping program")
+            break
+        }
 
         go func(url, dir string) {
-
+            
+            wg.Add(1)
             dead := false
 
             fmt.Println("Url is:", url)
@@ -197,10 +206,12 @@ func main() {
                 switch sc := r.StatusCode; sc {
                 case 404:
                     fmt.Println("Thread", thread.Id, "died at time: ", time.Now())
+                    wg.Done()
                     dead = true
 
                 case 304:
                     fmt.Println("Nothing new for thread", thread.Id)
+                    thread.Time_rcv = r.Header.Get("Last-Modified")
                     if tc := thread.Cooldown * 2; tc > MAX_COOLDOWN {
                         thread.Cooldown = MAX_COOLDOWN
                     } else {
@@ -224,5 +235,9 @@ func main() {
         }(url, dir)
 
     }
+    
+    fmt.Println("Waiting on all threads to finish")
+    wg.Wait()
+    fmt.Println("All threads done, terminated gracefully")
 
 }
