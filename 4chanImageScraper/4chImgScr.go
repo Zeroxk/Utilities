@@ -10,8 +10,8 @@ import (
     "os"
     "strconv"
     "strings"
-    "time"
     "sync"
+    "time"
 )
 
 const (
@@ -44,11 +44,15 @@ func readURL(url string) ([]byte, string) {
         log.Fatal(err)
     }
 
-    body, err := ioutil.ReadAll(resp.Body)
+    body := make([]byte, 0)
 
-    defer resp.Body.Close()
-    if err != nil {
-        log.Fatal(err)
+    if resp.StatusCode != 404 {
+        body, err = ioutil.ReadAll(resp.Body)
+
+        defer resp.Body.Close()
+        if err != nil {
+            log.Fatal(err)
+        }
     }
 
     return body, resp.Header.Get("Last-Modified")
@@ -83,13 +87,18 @@ func downloadImages(t *Thread) {
 
             img, _ := readURL(url)
 
-            path := strings.Join([]string{t.Dir, `\`, strconv.FormatInt(p.Tim, 10), p.Ext}, "")
-            err := ioutil.WriteFile(path, img, 0644)
-            if err != nil {
-                log.Fatal(err)
+            if len(img) != 0 {
+
+                path := strings.Join([]string{t.Dir, `\`, strconv.FormatInt(p.Tim, 10), p.Ext}, "")
+                err := ioutil.WriteFile(path, img, 0644)
+                if err != nil {
+                    log.Fatal(err)
+                }
+                fmt.Println("Done downloading image from", url)
+            } else {
+                fmt.Println("Image location has 404'd")
             }
 
-            fmt.Println("Done downloading image from", url)
         }
 
     }
@@ -132,6 +141,7 @@ func update(json string, thread *Thread) {
 
     t := new(Thread)
     parseJSON(jsonObj, t)
+    t.LastPost = len(t.Posts) - 1
 
     postsDelta := t.Posts[thread.LastPost+1:]
     fmt.Println(len(postsDelta), "new posts\n")
@@ -150,9 +160,9 @@ func main() {
 
     input := bufio.NewReader(os.Stdin)
     var wg sync.WaitGroup
-    
+
     for {
-        
+
         fmt.Println("Leave inputs empty to signal end of input")
         fmt.Printf("Url: ")
         var url, dir string
@@ -162,14 +172,14 @@ func main() {
         dir, _ = input.ReadString('\n')
         dir = strings.Trim(dir, "\n")
         dir = strings.TrimSpace(dir)
-        
+
         if url == "" && dir == "" {
             fmt.Println("Empty inputs, stopping program")
             break
         }
 
         go func(url, dir string) {
-            
+
             wg.Add(1)
             dead := false
 
@@ -235,7 +245,7 @@ func main() {
         }(url, dir)
 
     }
-    
+
     fmt.Println("Waiting on all threads to finish")
     wg.Wait()
     fmt.Println("All threads done, terminated gracefully")
