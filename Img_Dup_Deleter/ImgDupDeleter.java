@@ -11,7 +11,7 @@ import javax.imageio.ImageIO;
 
 /**
  * This program detects and deletes duplicate images in a folder by comparing MD5 hashes
- * arg[i] must be absolute path to folder
+ * arg[i] must be absolute path to folder and encased with quotes, i.e "\home\Zeroxk\Pictures" (including quotes)
  * 
  * @author Zeroxk
  *
@@ -30,6 +30,7 @@ public class ImgDupDeleter {
 
 		imgExts.add(new String("png"));
 		imgExts.add(new String("jpg"));
+		imgExts.add(new String("gif"));
 
 		for (int i = 0; i < args.length; i++) {
 
@@ -71,7 +72,7 @@ public class ImgDupDeleter {
 				System.out.println(name + " ignored, not an image");
 				continue;
 			}
-			
+
 			System.out.println("Filextension of image is: " + imgExt);
 
 			System.out.println("Processing image: " + currFile.getAbsolutePath());
