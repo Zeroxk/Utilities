@@ -11,7 +11,8 @@ import javax.imageio.ImageIO;
 
 /**
  * This program detects and deletes duplicate images in a folder by comparing MD5 hashes
- * arg[i] must be absolute path to folder and encased with quotes, i.e "\home\Zeroxk\Pictures" (including quotes)
+ * arg[i] must be absolute path to folder and encased with quotes if it contains spaces 
+ * i.e "\home\Zeroxk\My Pictures"
  * 
  * @author Zeroxk
  *
