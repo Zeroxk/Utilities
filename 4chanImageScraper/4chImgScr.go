@@ -156,6 +156,21 @@ func update(json string, thread *Thread) {
 
 }
 
+//Checks for duplicates in the thread's folder, calls external Java program ImgDupDel.jar
+func checkDupes(dir string) {
+
+    cmd := exec.Command("java", "-jar", "ImgDupDel.jar", dir)
+    fmt.Println("Checking for dupes")
+    str, err := cmd.Output()
+
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Println(string(str))
+
+}
+
 func main() {
 
     input := bufio.NewReader(os.Stdin)
@@ -216,6 +231,7 @@ func main() {
                 switch sc := r.StatusCode; sc {
                 case 404:
                     fmt.Println("Thread", thread.Id, "died at time: ", time.Now())
+                    checkDupes(thread.Dir)
                     wg.Done()
                     dead = true
 
