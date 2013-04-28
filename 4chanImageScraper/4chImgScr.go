@@ -167,7 +167,7 @@ func update(json string, thread *Thread) {
 //Checks for duplicates in the thread's folder, calls external Java program ImgDupDel.jar
 func checkDupes(dir string) {
 
-    cmd := exec.Command("java", "-jar", "ImgDupDel.jar", `G:\TestFolder9`)
+    cmd := exec.Command("java", "-jar", "ImgDupDel.jar", dir)
     fmt.Println("Checking for dupes")
     str, err := cmd.Output()
 
