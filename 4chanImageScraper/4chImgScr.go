@@ -118,7 +118,7 @@ func get_Thread(url string) (thread *Thread, json string) {
     thread.Board = tmp[3]
     thread.Cooldown = DEFAULT_COOLDOWN
 
-    json = strings.Join([]string{"http://api.4chan.org/", strings.Join(tmp[3:], "/"), ".json"}, "")
+    json = strings.Join([]string{tmp[0], "//api.4chan.org/", strings.Join(tmp[3:], "/"), ".json"}, "")
 
     fmt.Println("Reading url")
     jsonObj, lastMod := readURL(json)
@@ -138,38 +138,55 @@ func get_Thread(url string) (thread *Thread, json string) {
 func update(json string, thread *Thread) {
 
     jsonObj, lastMod := readURL(json)
-    thread.Time_rcv = lastMod
 
-    t := new(Thread)
-    parseJSON(jsonObj, t)
-    t.LastPost = len(t.Posts) - 1
+    if len(jsonObj) != 0 {
 
-    postsDelta := t.Posts[thread.LastPost+1:]
-    fmt.Println(len(postsDelta), "new posts\n")
-    thread.Posts = append(thread.Posts, postsDelta...)
+        thread.Time_rcv = lastMod
 
-    fmt.Println("Thread last modified:", thread.Time_rcv)
+        t := new(Thread)
+        parseJSON(jsonObj, t)
+        t.LastPost = len(t.Posts) - 1
 
-    downloadImages(thread)
+        postsDelta := t.Posts[thread.LastPost+1:]
+        fmt.Println(len(postsDelta), "new posts\n")
+        thread.Posts = append(thread.Posts, postsDelta...)
 
-    thread.LastPost = t.LastPost
-    fmt.Println("Last post is:", strconv.FormatInt(thread.Posts[thread.LastPost].No, 10), "\n")
+        fmt.Println("Thread last modified:", thread.Time_rcv)
+
+        downloadImages(thread)
+
+        thread.LastPost = t.LastPost
+        fmt.Println("Last post is:", strconv.FormatInt(thread.Posts[thread.LastPost].No, 10), "\n")
+
+    } else {
+        fmt.Println("Thread died while fetching update")
+    }
 
 }
 
 //Checks for duplicates in the thread's folder, calls external Java program ImgDupDel.jar
 func checkDupes(dir string) {
 
-    cmd := exec.Command("java", "-jar", "ImgDupDel.jar", dir)
+    cmd := exec.Command("java", "-jar", "ImgDupDel.jar", `G:\TestFolder9`)
     fmt.Println("Checking for dupes")
     str, err := cmd.Output()
 
-    if err != nil {
-        log.Fatal(err)
-    }
-
     fmt.Println(string(str))
 
+    if err != nil {
+        log.Println("Something went wrong, see java output")
+    }
+
+    fmt.Println("Done!")
+
+}
+
+func validURL(url string) bool {
+    return strings.HasPrefix(url, "http://boards.4chan.org/") || strings.HasPrefix(url, "https://boards.4chan.org")
+}
+
+func validPath(dir string) bool {
+    return filepath.IsAbs(dir)
 }
 
 func main() {
@@ -179,7 +196,7 @@ func main() {
 
     for {
 
-        fmt.Println("Leave inputs empty to signal end of input")
+        fmt.Println("Leave one or both of the inputs empty to signal end of input")
         fmt.Printf("Url: ")
         var url, dir string
         fmt.Scanf("%s\n", &url)
@@ -189,77 +206,84 @@ func main() {
         dir = strings.Trim(dir, "\n")
         dir = strings.TrimSpace(dir)
 
-        if url == "" && dir == "" {
-            fmt.Println("Empty inputs, stopping program")
+        if url == "" || dir == "" {
+            fmt.Println("Empty input, stopping program")
             break
         }
 
-        go func(url, dir string) {
+        if validURL(url) && validPath(dir) {
 
-            wg.Add(1)
-            dead := false
+            go func(url, dir string) {
 
-            fmt.Println("Url is:", url)
-            fmt.Println("Directory is:", dir, "\n")
+                wg.Add(1)
+                dead := false
 
-            thread, json := get_Thread(url)
-            thread.Dir = dir
+                fmt.Println("Url is:", url)
+                fmt.Println("Directory is:", dir, "\n")
 
-            downloadImages(thread)
+                thread, json := get_Thread(url)
+                thread.Dir = dir
 
-            thread.LastPost = len(thread.Posts) - 1
-            fmt.Println("Last post is:", strconv.FormatInt(thread.Posts[thread.LastPost].No, 10), "\n")
+                downloadImages(thread)
 
-            for {
+                thread.LastPost = len(thread.Posts) - 1
+                fmt.Println("Last post is:", strconv.FormatInt(thread.Posts[thread.LastPost].No, 10), "\n")
 
-                fmt.Println("Thread", thread.Id, "is sleeping for", thread.Cooldown, "seconds\n")
-                time.Sleep(time.Duration(thread.Cooldown) * time.Second)
-                fmt.Println("Thread", thread.Id, "woke up")
+                for {
 
-                req, err := http.NewRequest("GET", url, nil)
-                if err != nil {
-                    log.Fatal(err)
-                }
-                req.Header.Add("If-Modified-Since", thread.Time_rcv)
+                    fmt.Println("Thread", thread.Id, "is sleeping for", thread.Cooldown, "seconds\n")
+                    time.Sleep(time.Duration(thread.Cooldown) * time.Second)
+                    fmt.Println("Thread", thread.Id, "woke up")
 
-                r, err := http.DefaultClient.Do(req)
+                    req, err := http.NewRequest("GET", url, nil)
+                    if err != nil {
+                        log.Fatal(err)
+                    }
+                    req.Header.Add("If-Modified-Since", thread.Time_rcv)
 
-                if err != nil {
-                    log.Fatal(err)
-                }
+                    r, err := http.DefaultClient.Do(req)
 
-                fmt.Println("Status code for request response:", r.StatusCode)
-                switch sc := r.StatusCode; sc {
-                case 404:
-                    fmt.Println("Thread", thread.Id, "died at time: ", time.Now())
-                    checkDupes(thread.Dir)
-                    wg.Done()
-                    dead = true
-
-                case 304:
-                    fmt.Println("Nothing new for thread", thread.Id)
-                    thread.Time_rcv = r.Header.Get("Last-Modified")
-                    if tc := thread.Cooldown * 2; tc > MAX_COOLDOWN {
-                        thread.Cooldown = MAX_COOLDOWN
-                    } else {
-                        thread.Cooldown = tc
+                    if err != nil {
+                        log.Fatal(err)
                     }
 
-                default:
-                    fmt.Println("Thread", thread.Id, "has been updated")
-                    thread.Cooldown = DEFAULT_COOLDOWN
-                    update(json, thread)
+                    fmt.Println("Status code for request response:", r.StatusCode)
+                    switch sc := r.StatusCode; sc {
+                    case 404:
+                        fmt.Println("Thread", thread.Id, "died at time: ", time.Now())
+                        checkDupes(thread.Dir)
+                        wg.Done()
+                        dead = true
+
+                    case 304:
+                        fmt.Println("Nothing new for thread", thread.Id)
+                        thread.Time_rcv = r.Header.Get("Last-Modified")
+
+                        if tc := thread.Cooldown * 2; tc > MAX_COOLDOWN {
+                            thread.Cooldown = MAX_COOLDOWN
+                        } else {
+                            thread.Cooldown = tc
+                        }
+
+                    default:
+                        fmt.Println("Thread", thread.Id, "has been updated")
+                        thread.Cooldown = DEFAULT_COOLDOWN
+                        update(json, thread)
+                    }
+
+                    if dead {
+                        break
+                    }
+
                 }
 
-                if dead {
-                    break
-                }
+                fmt.Println("Goodbye thread", thread.Id, "\n")
 
-            }
+            }(url, dir)
 
-            fmt.Println("Goodbye thread", thread.Id)
-
-        }(url, dir)
+        } else {
+            fmt.Println("Not valid url or directory")
+        }
 
     }
 
