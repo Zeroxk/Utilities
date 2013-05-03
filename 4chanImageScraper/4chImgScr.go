@@ -9,11 +9,11 @@ import (
     "net/http"
     "os"
     "os/exec"
+    "path/filepath"
     "strconv"
     "strings"
     "sync"
     "time"
-    "path/filepath"
 )
 
 const (
@@ -147,6 +147,8 @@ func update(json string, thread *Thread) {
         t := new(Thread)
         parseJSON(jsonObj, t)
         t.LastPost = len(t.Posts) - 1
+        fmt.Println("Index of thread last post:", strconv.Itoa(thread.LastPost))
+        fmt.Println("Index of updated thread last post:", strconv.Itoa(t.LastPost))
 
         postsDelta := t.Posts[thread.LastPost+1:]
         fmt.Println(len(postsDelta), "new posts\n")
@@ -194,6 +196,14 @@ func main() {
 
     input := bufio.NewReader(os.Stdin)
     var wg sync.WaitGroup
+    wantDupes := true
+
+    if len(os.Args) == 2 {
+        if arg := os.Args[1]; arg == "--noDupes" {
+            wantDupes = false
+        }
+    }
+    fmt.Println("Dupe checking is:", wantDupes)
 
     for {
 
@@ -252,7 +262,11 @@ func main() {
                     switch sc := r.StatusCode; sc {
                     case 404:
                         fmt.Println("Thread", thread.Id, "died at time: ", time.Now())
-                        checkDupes(thread.Dir)
+
+                        if wantDupes {
+                            checkDupes(thread.Dir)
+                        }
+
                         wg.Done()
                         dead = true
 
@@ -261,6 +275,7 @@ func main() {
                         thread.Time_rcv = r.Header.Get("Last-Modified")
 
                         if tc := thread.Cooldown * 2; tc > MAX_COOLDOWN {
+                            fmt.Println("Time is now:", time.Now())
                             thread.Cooldown = MAX_COOLDOWN
                         } else {
                             thread.Cooldown = tc
