@@ -76,15 +76,16 @@ func parseJSON(jsonObj []byte, t *Thread) {
 }
 
 //Download thread images into its specified directory
-func downloadImages(t *Thread) {
+func downloadImages(t *Thread, start int) {
 
     fmt.Println("Starting image downloads")
-    for i := t.LastPost; i < len(t.Posts); i++ {
-
+    baseUrl := strings.Join([]string{"http://images.4chan.org/", t.Board, "/src/"}, "")
+    for i := start; i<len(t.Posts); i++ {
+        
         p := t.Posts[i]
         if !(p.Tim == 0) {
             //fmt.Println(strconv.FormatInt(p.Tim, 10), p.Ext)
-            url := strings.Join([]string{"http://images.4chan.org/", t.Board, "/src/", strconv.FormatInt(p.Tim, 10), p.Ext}, "")
+            url := strings.Join([]string{baseUrl, strconv.FormatInt(p.Tim, 10), p.Ext}, "")
             fmt.Println("Downloading image from", url)
 
             img, _ := readURL(url)
@@ -147,16 +148,21 @@ func update(json string, thread *Thread) {
         t := new(Thread)
         parseJSON(jsonObj, t)
         t.LastPost = len(t.Posts) - 1
-        fmt.Println("Index of thread last post:", strconv.Itoa(thread.LastPost))
-        fmt.Println("Index of updated thread last post:", strconv.Itoa(t.LastPost))
-
-        postsDelta := t.Posts[thread.LastPost+1:]
-        fmt.Println(len(postsDelta), "new posts\n")
-        thread.Posts = append(thread.Posts, postsDelta...)
+        
+        numDelPosts := 0
+        if thread.Posts[thread.LastPost].No != t.Posts[thread.LastPost].No {
+            fmt.Println("Finding deleted posts")
+            numDelPosts = findNumDelPosts(thread.Posts, t.Posts)
+            fmt.Println("# of deleted posts:", numDelPosts, "\n")
+        }
+        
+        postsDelta := len(t.Posts) - (thread.LastPost+1) - numDelPosts
+        fmt.Println(postsDelta, "new posts\n")
+        thread.Posts = t.Posts
 
         fmt.Println("Thread last modified:", thread.Time_rcv)
 
-        downloadImages(thread)
+        downloadImages(thread, (thread.LastPost-numDelPosts))
 
         thread.LastPost = t.LastPost
         fmt.Println("Last post is:", strconv.FormatInt(thread.Posts[thread.LastPost].No, 10), "\n")
@@ -182,6 +188,24 @@ func checkDupes(dir string) {
 
     fmt.Println("Done!")
 
+}
+
+func findNumDelPosts(old, new []*Post) int {
+    
+    num := 0
+    for i,p := range(old) {
+        if p.No != new[i].No {
+            if i == len(old)-1 {
+                num++
+            }else {
+                num += findNumDelPosts(old[i+1:], new[i+1:])
+            }            
+            break
+        }
+    }
+    
+    return num
+    
 }
 
 func validURL(url string) bool {
@@ -235,7 +259,7 @@ func main() {
                 thread, json := get_Thread(url)
                 thread.Dir = dir
 
-                downloadImages(thread)
+                downloadImages(thread, 0)
 
                 thread.LastPost = len(thread.Posts) - 1
                 fmt.Println("Last post is:", strconv.FormatInt(thread.Posts[thread.LastPost].No, 10), "\n")
