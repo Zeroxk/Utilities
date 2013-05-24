@@ -92,7 +92,7 @@ func downloadImages(t *Thread, start int) {
 
             if len(img) != 0 {
 
-                path := strings.Join([]string{t.Dir, `\`, strconv.FormatInt(p.Tim, 10), p.Ext}, "")
+                path := strings.Join([]string{t.Dir, "\\", strconv.FormatInt(p.Tim, 10), p.Ext}, "")
                 err := ioutil.WriteFile(path, img, 0644)
                 if err != nil {
                     log.Fatal(err)
@@ -148,9 +148,11 @@ func update(json string, thread *Thread) {
         t := new(Thread)
         parseJSON(jsonObj, t)
         t.LastPost = len(t.Posts) - 1
+        fmt.Println("Index old lastpost:", thread.LastPost)
+        fmt.Println("Index new lastpost:", t.LastPost)
         
         numDelPosts := 0
-        if thread.Posts[thread.LastPost].No != t.Posts[thread.LastPost].No {
+        if len(t.Posts) < len(thread.Posts) {
             fmt.Println("Finding deleted posts")
             numDelPosts = findNumDelPosts(thread.Posts, t.Posts)
             fmt.Println("# of deleted posts:", numDelPosts, "\n")
@@ -193,9 +195,12 @@ func checkDupes(dir string) {
 func findNumDelPosts(old, new []*Post) int {
     
     num := 0
-    for i,p := range(old) {
-        if p.No != new[i].No {
-            if i == len(old)-1 {
+    if len(old) == 0 || len(new) == 0 {
+        return 0;
+    }
+    for i,p := range(new) {
+        if p.No != old[i].No {
+            if i == len(new)-1 {
                 num++
             }else {
                 num += findNumDelPosts(old[i+1:], new[i+1:])
@@ -220,11 +225,11 @@ func main() {
 
     input := bufio.NewReader(os.Stdin)
     var wg sync.WaitGroup
-    wantDupes := true
+    wantDupes := false
 
     if len(os.Args) == 2 {
-        if arg := os.Args[1]; arg == "--noDupes" {
-            wantDupes = false
+        if arg := os.Args[1]; arg == "--dupes" {
+            wantDupes = true
         }
     }
     fmt.Println("Dupe checking is:", wantDupes)
