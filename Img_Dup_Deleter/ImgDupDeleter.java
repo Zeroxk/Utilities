@@ -7,6 +7,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -97,6 +98,11 @@ public class ImgDupDeleter {
 
 		for (int j = 0; j < images.length; j++) {
 			File currFile = images[j];
+			
+			if(mapFiles.containsValue(currFile)) {
+				System.out.println(currFile.getAbsolutePath() + " has already been checked, skipping\n");
+				continue;
+			}
 
 			if(currFile.isDirectory()) {
 				checkFolder(currFile);
@@ -195,4 +201,35 @@ public class ImgDupDeleter {
 
 	}
 
+}
+
+class Pair<F,S> implements Serializable{
+	
+	private static final long serialVersionUID = 2322415732038953331L;
+	
+	private F first;
+	private S second;
+	
+	Pair(F f, S s) {
+		this.first = f;
+		this.second = s;
+	}
+
+	public F getFirst() {
+		return first;
+	}
+
+	public void setFirst(F first) {
+		this.first = first;
+	}
+
+	public S getSecond() {
+		return second;
+	}
+
+	public void setSecond(S second) {
+		this.second = second;
+	}
+
+	
 }
