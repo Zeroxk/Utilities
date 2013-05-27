@@ -1,7 +1,12 @@
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -38,7 +43,15 @@ public class ImgDupDeleter {
 			File folder = new File(args[i]);
 
 			if(folder.isDirectory()) {
-				checkFolder(folder);
+				try {
+					checkFolder(folder);
+				} catch (FileNotFoundException e) {
+					e.printStackTrace();
+				} catch (ClassNotFoundException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}else {
 				System.out.println(args[i] + " is not a folder");
 			}
@@ -50,13 +63,37 @@ public class ImgDupDeleter {
 	/**
 	 * Checks a folder for duplicates, does recursive call if the file being worked on is a folder
 	 * @param folder Folder to be checked
+	 * @throws FileNotFoundException 
+	 * @throws IOException 
+	 * @throws ClassNotFoundException 
 	 */
-	private static void checkFolder(File folder) {
+	@SuppressWarnings("unchecked")
+	private static void checkFolder(File folder) throws FileNotFoundException, ClassNotFoundException, IOException {
 
 		System.out.println("Processing folder: " + folder.getAbsolutePath());
 		File [] images = folder.listFiles();
 		int numDupes = 0;
-		HashMap<String, File> mapFiles = new HashMap<String, File>();
+
+		StringBuilder sb = new StringBuilder();
+		sb.append(folder.getAbsolutePath());
+		sb.append(File.separator);
+		sb.append(folder.getName());
+		sb.append(".txt");
+		File hashes = new File(sb.toString());
+
+		HashMap<String, File> mapFiles = new HashMap<>();
+
+		if(hashes.createNewFile()) {
+			System.out.println("Created file for storing hashes " + hashes.getName());
+		}else {
+			System.out.println(hashes.getName() + " already exists, loading\n");
+			FileInputStream fs = new FileInputStream(hashes);
+			ObjectInputStream in = new ObjectInputStream(fs);
+
+			mapFiles = (HashMap<String, File>) in.readObject();
+			in.close();
+			fs.close();
+		}
 
 		for (int j = 0; j < images.length; j++) {
 			File currFile = images[j];
@@ -70,18 +107,16 @@ public class ImgDupDeleter {
 			String imgExt = name.substring(name.lastIndexOf(".")+1);
 
 			if(!imgExts.contains(imgExt)) {
-				System.out.println(name + " ignored, not an image");
+				System.out.println(name + " ignored, not an image\n");
 				continue;
 			}
-
-			System.out.println("Filextension of image is: " + imgExt);
 
 			System.out.println("Processing image: " + currFile.getAbsolutePath());
 			if(currFile.isDirectory()) continue;
 
 			byte[] hash = hash(currFile, imgExt);
 			if(hash == null) {
-				System.out.println(currFile.getAbsolutePath() + " is null, deleted");
+				System.out.println(currFile.getAbsolutePath() + " is null, deleted\n");
 				currFile.delete();
 				continue;
 			}
@@ -95,6 +130,14 @@ public class ImgDupDeleter {
 				mapFiles.put(hex, currFile);
 			}
 		}
+
+		//Serialize mapFiles and store
+		FileOutputStream fs = new FileOutputStream(hashes);
+		ObjectOutputStream out = new ObjectOutputStream(fs);
+		out.writeObject(mapFiles);
+		out.close();
+		fs.close();
+		System.out.println("Serialized and stored hashmap " + hashes.getName());
 
 		System.out.println("Number of dupes in folder " + folder.getAbsolutePath() + ": " + numDupes);
 		System.out.println("Done with folder: " + folder.getAbsolutePath());
