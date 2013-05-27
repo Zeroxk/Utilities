@@ -1,3 +1,4 @@
+import java.awt.color.CMMException;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -7,7 +8,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.Serializable;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -37,6 +37,7 @@ public class ImgDupDeleter {
 
 		imgExts.add(new String("png"));
 		imgExts.add(new String("jpg"));
+		imgExts.add(new String("jpeg"));
 		imgExts.add(new String("gif"));
 
 		for (int i = 0; i < args.length; i++) {
@@ -84,7 +85,7 @@ public class ImgDupDeleter {
 
 		HashMap<String, File> mapFiles = new HashMap<>();
 
-		if(hashes.createNewFile()) {
+		if(hashes.createNewFile() || hashes.length() == 0) {
 			System.out.println("Created file for storing hashes " + hashes.getName());
 		}else {
 			System.out.println(hashes.getName() + " already exists, loading\n");
@@ -99,15 +100,15 @@ public class ImgDupDeleter {
 		for (int j = 0; j < images.length; j++) {
 			File currFile = images[j];
 			
-			if(mapFiles.containsValue(currFile)) {
-				System.out.println(currFile.getAbsolutePath() + " has already been checked, skipping\n");
-				continue;
-			}
-
 			if(currFile.isDirectory()) {
 				checkFolder(currFile);
 				continue;
 			}
+			
+			if(mapFiles.containsValue(currFile)) {
+				System.out.println(currFile.getAbsolutePath() + " has already been checked, skipping\n");
+				continue;
+			}			
 
 			String name = currFile.getName();
 			String imgExt = name.substring(name.lastIndexOf(".")+1);
@@ -118,12 +119,10 @@ public class ImgDupDeleter {
 			}
 
 			System.out.println("Processing image: " + currFile.getAbsolutePath());
-			if(currFile.isDirectory()) continue;
 
 			byte[] hash = hash(currFile, imgExt);
 			if(hash == null) {
-				System.out.println(currFile.getAbsolutePath() + " is null, deleted\n");
-				currFile.delete();
+				System.out.println(currFile.getAbsolutePath() + " could not be hashed, deleted\n");
 				continue;
 			}
 			String hex = hashToHex(hash);
@@ -194,6 +193,9 @@ public class ImgDupDeleter {
 		} catch (NoSuchAlgorithmException e) {
 			System.out.println("Error: could not find MD5 algorithm");
 			e.printStackTrace();
+		} catch (CMMException e) {
+			System.out.println("Could not load image");
+			e.printStackTrace();
 		}
 
 		System.out.println("Done with digest of image: " + img.getAbsolutePath() + "\n");
@@ -201,35 +203,4 @@ public class ImgDupDeleter {
 
 	}
 
-}
-
-class Pair<F,S> implements Serializable{
-	
-	private static final long serialVersionUID = 2322415732038953331L;
-	
-	private F first;
-	private S second;
-	
-	Pair(F f, S s) {
-		this.first = f;
-		this.second = s;
-	}
-
-	public F getFirst() {
-		return first;
-	}
-
-	public void setFirst(F first) {
-		this.first = first;
-	}
-
-	public S getSecond() {
-		return second;
-	}
-
-	public void setSecond(S second) {
-		this.second = second;
-	}
-
-	
 }
