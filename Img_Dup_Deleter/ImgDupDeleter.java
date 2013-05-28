@@ -5,12 +5,14 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 
 import javax.imageio.ImageIO;
@@ -53,6 +55,20 @@ public class ImgDupDeleter {
 					sb.append(folder.getAbsolutePath());
 					sb.append(File.separator);
 					sb.append(folder.getName());
+					
+					File dupeLog = new File(sb.toString() + "dupeLog.txt");
+					
+					if(dupeLog.createNewFile()) {
+						System.out.println("Created file for logging dupes " + dupeLog.getName());
+					}else {
+						System.out.println(dupeLog.getName() + " already exists");
+					}
+					
+					Date now = new Date();
+					FileWriter fw = new FileWriter(dupeLog, true);
+					fw.write("\nChecked folder(s) at " + now.toString() + "\n");
+					fw.close();
+					
 					sb.append(".txt");
 					File hashes = new File(sb.toString());
 
@@ -61,17 +77,17 @@ public class ImgDupDeleter {
 					if(hashes.createNewFile() || hashes.length() == 0) {
 						System.out.println("Created file for storing hashes " + hashes.getName());
 					}else {
-						System.out.println(hashes.getName() + " already exists, loading\n");
+						System.out.println(hashes.getName() + " already exists, loading");
 						FileInputStream fs = new FileInputStream(hashes);
 						ObjectInputStream in = new ObjectInputStream(fs);
 
 						mapFiles = (HashMap<String, File>) in.readObject();
-						System.out.println("Loaded existing hashmap " + hashes.getName());
+						System.out.println("Loaded existing hashmap " + hashes.getName() + "\n");
 						in.close();
 						fs.close();
 					}
 					
-					checkFolder(folder, mapFiles);
+					checkFolder(folder, mapFiles, dupeLog);
 					
 					//Serialize mapFiles and store
 					FileOutputStream fs = new FileOutputStream(hashes);
@@ -105,16 +121,17 @@ public class ImgDupDeleter {
 	 * @throws IOException 
 	 * @throws ClassNotFoundException 
 	 */
-	private static void checkFolder(File folder, HashMap<String, File> mapFiles) throws FileNotFoundException, ClassNotFoundException, IOException {
+	private static void checkFolder(File folder, HashMap<String, File> mapFiles, File dupeLog) throws FileNotFoundException, ClassNotFoundException, IOException {
 
 		System.out.println("Processing folder: " + folder.getAbsolutePath());
 		File [] images = folder.listFiles();
 		int numDupes = 0;
+		ArrayList<String> dupes = new ArrayList<>();
 
 		for (File currFile : images) {
 			
 			if(currFile.isDirectory()) {
-				checkFolder(currFile, mapFiles);
+				checkFolder(currFile, mapFiles, dupeLog);
 				continue;
 			}
 			
@@ -141,7 +158,16 @@ public class ImgDupDeleter {
 			String hex = hashToHex(hash);
 
 			if(mapFiles.containsKey(hex) && !mapFiles.get(hex).equals(currFile)) {
-				System.out.println(currFile.getAbsolutePath() + " is duplicate of " + mapFiles.get(hex).getAbsolutePath());
+				StringBuilder sb = new StringBuilder();
+				sb.append(currFile.getAbsolutePath());
+				sb.append(" is duplicate of ");
+				sb.append(mapFiles.get(hex).getAbsolutePath());
+				sb.append("\n");
+				
+				dupes.add(sb.toString());
+				
+				System.out.println(sb.toString());
+				
 				numDupes++;
 				totalDupes++;
 				currFile.delete();
@@ -149,7 +175,18 @@ public class ImgDupDeleter {
 				mapFiles.put(hex, currFile);
 			}
 		}
-
+		
+		if(!dupes.isEmpty()) {
+			System.out.println("Writing dupelog");
+			FileWriter fw = new FileWriter(dupeLog, true);
+			for(String str : dupes) {
+				fw.write(str);
+			}
+			//fw.write("\n");
+			fw.close();
+			System.out.println("Finished writing dupelog from folder " + folder.getAbsolutePath() + "\n");
+		}
+		
 		System.out.println("Number of dupes in folder " + folder.getAbsolutePath() + ": " + numDupes);
 		System.out.println("Done with folder: " + folder.getAbsolutePath());
 
