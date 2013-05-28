@@ -30,6 +30,7 @@ public class ImgDupDeleter {
 
 	static ArrayList<String> imgExts = new ArrayList<String>();
 	static int totalDupes;
+	static int folderDupes;
 
 	@SuppressWarnings("unchecked")
 	public static void main(String[] args) {
@@ -66,7 +67,7 @@ public class ImgDupDeleter {
 					
 					Date now = new Date();
 					FileWriter fw = new FileWriter(dupeLog, true);
-					fw.write("\nChecked folder(s) at " + now.toString() + "\n");
+					fw.write("Checked folder(s) at " + now.toString() + "\n");
 					fw.close();
 					
 					sb.append(".txt");
@@ -87,7 +88,13 @@ public class ImgDupDeleter {
 						fs.close();
 					}
 					
+					folderDupes = 0;
 					checkFolder(folder, mapFiles, dupeLog);
+					
+					String str = "Number of dupes in folder + subfolder(s): " + folderDupes + "\n\n";
+					fw = new FileWriter(dupeLog, true);
+					fw.write(str);
+					fw.close();
 					
 					//Serialize mapFiles and store
 					FileOutputStream fs = new FileOutputStream(hashes);
@@ -95,7 +102,7 @@ public class ImgDupDeleter {
 					out.writeObject(mapFiles);
 					out.close();
 					fs.close();
-					System.out.println("Serialized and stored hashmap " + hashes.getName());
+					System.out.println("Serialized and stored hashmap " + hashes.getName() + "\n");
 					
 				} catch (FileNotFoundException e) {
 					e.printStackTrace();
@@ -170,24 +177,35 @@ public class ImgDupDeleter {
 				
 				numDupes++;
 				totalDupes++;
+				folderDupes++;
 				currFile.delete();
 			}else {
 				mapFiles.put(hex, currFile);
 			}
 		}
 		
+		FileWriter fw = new FileWriter(dupeLog, true);
 		if(!dupes.isEmpty()) {
 			System.out.println("Writing dupelog");
-			FileWriter fw = new FileWriter(dupeLog, true);
 			for(String str : dupes) {
 				fw.write(str);
 			}
-			//fw.write("\n");
-			fw.close();
+			
 			System.out.println("Finished writing dupelog from folder " + folder.getAbsolutePath() + "\n");
+			
+			String str = "Number of dupes in folder " + folder.getAbsolutePath() + ": " + numDupes + "\n";
+			fw.write(str);
+			fw.write("\n");
+			System.out.println(str);
+			
+		}else {
+			String str = "No dupes in folder " + folder.getAbsolutePath() + "\n";
+			fw.write(str);
+			fw.write("\n");
 		}
+		fw.close();
 		
-		System.out.println("Number of dupes in folder " + folder.getAbsolutePath() + ": " + numDupes);
+		
 		System.out.println("Done with folder: " + folder.getAbsolutePath());
 
 	}
@@ -217,7 +235,6 @@ public class ImgDupDeleter {
 
 		byte[] hash = null;
 		try {
-
 
 			BufferedImage buffImg = ImageIO.read(img);
 			if(buffImg == null) return null;
