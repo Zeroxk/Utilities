@@ -27,7 +27,9 @@ import javax.imageio.ImageIO;
 public class ImgDupDeleter {
 
 	static ArrayList<String> imgExts = new ArrayList<String>();
+	static int totalDupes;
 
+	@SuppressWarnings("unchecked")
 	public static void main(String[] args) {
 
 		if(args.length < 1) {
@@ -46,7 +48,39 @@ public class ImgDupDeleter {
 
 			if(folder.isDirectory()) {
 				try {
-					checkFolder(folder);
+					
+					StringBuilder sb = new StringBuilder();
+					sb.append(folder.getAbsolutePath());
+					sb.append(File.separator);
+					sb.append(folder.getName());
+					sb.append(".txt");
+					File hashes = new File(sb.toString());
+
+					HashMap<String, File> mapFiles = new HashMap<>();
+					
+					if(hashes.createNewFile() || hashes.length() == 0) {
+						System.out.println("Created file for storing hashes " + hashes.getName());
+					}else {
+						System.out.println(hashes.getName() + " already exists, loading\n");
+						FileInputStream fs = new FileInputStream(hashes);
+						ObjectInputStream in = new ObjectInputStream(fs);
+
+						mapFiles = (HashMap<String, File>) in.readObject();
+						System.out.println("Loaded existing hashmap " + hashes.getName());
+						in.close();
+						fs.close();
+					}
+					
+					checkFolder(folder, mapFiles);
+					
+					//Serialize mapFiles and store
+					FileOutputStream fs = new FileOutputStream(hashes);
+					ObjectOutputStream out = new ObjectOutputStream(fs);
+					out.writeObject(mapFiles);
+					out.close();
+					fs.close();
+					System.out.println("Serialized and stored hashmap " + hashes.getName());
+					
 				} catch (FileNotFoundException e) {
 					e.printStackTrace();
 				} catch (ClassNotFoundException e) {
@@ -59,6 +93,8 @@ public class ImgDupDeleter {
 			}
 
 		}
+		
+		System.out.println("Total number of dupes: " + totalDupes);
 
 	}
 
@@ -69,39 +105,16 @@ public class ImgDupDeleter {
 	 * @throws IOException 
 	 * @throws ClassNotFoundException 
 	 */
-	@SuppressWarnings("unchecked")
-	private static void checkFolder(File folder) throws FileNotFoundException, ClassNotFoundException, IOException {
+	private static void checkFolder(File folder, HashMap<String, File> mapFiles) throws FileNotFoundException, ClassNotFoundException, IOException {
 
 		System.out.println("Processing folder: " + folder.getAbsolutePath());
 		File [] images = folder.listFiles();
 		int numDupes = 0;
 
-		StringBuilder sb = new StringBuilder();
-		sb.append(folder.getAbsolutePath());
-		sb.append(File.separator);
-		sb.append(folder.getName());
-		sb.append(".txt");
-		File hashes = new File(sb.toString());
-
-		HashMap<String, File> mapFiles = new HashMap<>();
-
-		if(hashes.createNewFile() || hashes.length() == 0) {
-			System.out.println("Created file for storing hashes " + hashes.getName());
-		}else {
-			System.out.println(hashes.getName() + " already exists, loading\n");
-			FileInputStream fs = new FileInputStream(hashes);
-			ObjectInputStream in = new ObjectInputStream(fs);
-
-			mapFiles = (HashMap<String, File>) in.readObject();
-			in.close();
-			fs.close();
-		}
-
-		for (int j = 0; j < images.length; j++) {
-			File currFile = images[j];
+		for (File currFile : images) {
 			
 			if(currFile.isDirectory()) {
-				checkFolder(currFile);
+				checkFolder(currFile, mapFiles);
 				continue;
 			}
 			
@@ -130,19 +143,12 @@ public class ImgDupDeleter {
 			if(mapFiles.containsKey(hex) && !mapFiles.get(hex).equals(currFile)) {
 				System.out.println(currFile.getAbsolutePath() + " is duplicate of " + mapFiles.get(hex).getAbsolutePath());
 				numDupes++;
+				totalDupes++;
 				currFile.delete();
 			}else {
 				mapFiles.put(hex, currFile);
 			}
 		}
-
-		//Serialize mapFiles and store
-		FileOutputStream fs = new FileOutputStream(hashes);
-		ObjectOutputStream out = new ObjectOutputStream(fs);
-		out.writeObject(mapFiles);
-		out.close();
-		fs.close();
-		System.out.println("Serialized and stored hashmap " + hashes.getName());
 
 		System.out.println("Number of dupes in folder " + folder.getAbsolutePath() + ": " + numDupes);
 		System.out.println("Done with folder: " + folder.getAbsolutePath());
@@ -195,6 +201,9 @@ public class ImgDupDeleter {
 			e.printStackTrace();
 		} catch (CMMException e) {
 			System.out.println("Could not load image");
+			e.printStackTrace();
+		} catch (ArrayIndexOutOfBoundsException e) {
+			System.out.println("Weirdo bug when reading certain gifs");
 			e.printStackTrace();
 		}
 
