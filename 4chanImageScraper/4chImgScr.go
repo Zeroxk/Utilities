@@ -80,10 +80,11 @@ func downloadImages(t *Thread, start int) {
 
     fmt.Println("Starting image downloads")
     baseUrl := strings.Join([]string{"http://images.4chan.org/", t.Board, "/src/"}, "")
+    
     for i := start; i<len(t.Posts); i++ {
         
         p := t.Posts[i]
-        if !(p.Tim == 0) {
+        if p.Tim != 0 {
             //fmt.Println(strconv.FormatInt(p.Tim, 10), p.Ext)
             url := strings.Join([]string{baseUrl, strconv.FormatInt(p.Tim, 10), p.Ext}, "")
             fmt.Println("Downloading image from", url)
@@ -94,10 +95,15 @@ func downloadImages(t *Thread, start int) {
 
                 path := strings.Join([]string{t.Dir, "\\", strconv.FormatInt(p.Tim, 10), p.Ext}, "")
                 err := ioutil.WriteFile(path, img, 0644)
+                
                 if err != nil {
-                    log.Fatal(err)
+                    fmt.Println("Error while saving image")
+                    log.Println(err)
+                    continue
                 }
+                
                 fmt.Println("Done downloading image from", url)
+                
             } else {
                 fmt.Println("Image location has 404'd")
             }
@@ -236,7 +242,7 @@ func main() {
 
     for {
 
-        fmt.Println("Leave one or both of the inputs empty to signal end of input")
+        fmt.Println("Leave both of the inputs empty to signal end of input")
         fmt.Printf("Url: ")
         var url, dir string
         fmt.Scanf("%s\n", &url)
@@ -246,8 +252,8 @@ func main() {
         dir = strings.Trim(dir, "\n")
         dir = strings.TrimSpace(dir)
 
-        if url == "" || dir == "" {
-            fmt.Println("Empty input, stopping program")
+        if url == "" && dir == "" {
+            fmt.Println("Empty inputs, stopping program")
             break
         }
 
@@ -269,7 +275,7 @@ func main() {
                 thread.LastPost = len(thread.Posts) - 1
                 fmt.Println("Last post is:", strconv.FormatInt(thread.Posts[thread.LastPost].No, 10), "\n")
 
-                for {
+                for !dead{
 
                     fmt.Println("Thread", thread.Id, "is sleeping for", thread.Cooldown, "seconds\n")
                     time.Sleep(time.Duration(thread.Cooldown) * time.Second)
@@ -277,14 +283,16 @@ func main() {
 
                     req, err := http.NewRequest("GET", url, nil)
                     if err != nil {
-                        log.Fatal(err)
+                        log.Println(err)
+                        continue;
                     }
                     req.Header.Add("If-Modified-Since", thread.Time_rcv)
 
                     r, err := http.DefaultClient.Do(req)
 
                     if err != nil {
-                        log.Fatal(err)
+                        log.Println(err)
+                        continue;
                     }
 
                     fmt.Println("Status code for request response:", r.StatusCode)
@@ -297,7 +305,7 @@ func main() {
                         }
 
                         wg.Done()
-                        dead = true
+                        dead = true;
 
                     case 304:
                         fmt.Println("Nothing new for thread", thread.Id)
@@ -310,14 +318,13 @@ func main() {
                             thread.Cooldown = tc
                         }
 
-                    default:
+                    case 200:
                         fmt.Println("Thread", thread.Id, "has been updated")
                         thread.Cooldown = DEFAULT_COOLDOWN
                         update(json, thread)
-                    }
-
-                    if dead {
-                        break
+                        
+                    default:
+                        fmt.Println("Status code other than 304, 404 and 200, continuing")
                     }
 
                 }
