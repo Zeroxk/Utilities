@@ -17,8 +17,8 @@ import (
 )
 
 const (
-    MAX_COOLDOWN     = 1800
-    DEFAULT_COOLDOWN = 30
+    MAX_COOLDOWN     = 3600
+    DEFAULT_COOLDOWN = 60
 )
 
 type Thread struct {
