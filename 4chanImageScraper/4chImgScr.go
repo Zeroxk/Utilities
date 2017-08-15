@@ -100,7 +100,7 @@ func downloadImages(t *Thread, start int) {
 
 			if len(img) != 0 {
 
-				path := strings.Join([]string{t.Dir, "\\", strconv.FormatInt(p.Tim, 10), p.Ext}, "")
+				path := strings.Join([]string{t.Dir, strconv.FormatInt(p.Tim, 10), p.Ext}, "")
 				err := ioutil.WriteFile(path, img, 0644)
 
 				if err != nil {
@@ -278,7 +278,7 @@ func main() {
 				fmt.Println("Directory is:", dir, "\n")
 
 				thread, json := getThread(url)
-				thread.Dir = dir
+				thread.Dir = filepath.ToSlash(dir)
 
 				downloadImages(thread, 0)
 
