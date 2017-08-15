@@ -261,6 +261,10 @@ func main() {
 		dir, _ = input.ReadString('\n')
 		dir = strings.Trim(dir, "\n")
 		dir = strings.TrimSpace(dir)
+		dir = filepath.FromSlash(dir)
+		if !strings.HasSuffix(dir, string(os.PathSeparator)) {
+			dir += string(os.PathSeparator)
+		}
 
 		if url == "" && dir == "" {
 			fmt.Println("Empty inputs, stopping program")
@@ -278,7 +282,7 @@ func main() {
 				fmt.Println("Directory is:", dir, "\n")
 
 				thread, json := getThread(url)
-				thread.Dir = filepath.ToSlash(dir)
+				thread.Dir = dir
 
 				downloadImages(thread, 0)
 
