@@ -17,10 +17,14 @@ import (
 )
 
 const (
-	MAX_COOLDOWN     = 3600
-	DEFAULT_COOLDOWN = 60
-	ApiBaseThreadURL = "https://a.4cdn.org/" //https://a.4cdn/[board]/thread/[threadnumber].json
-	ImageBaseURL     = "https://i.4cdn.org/" //https://i.4cdn.org/[board]/[filename]
+	//MaxCooldown Maximum seconds a thread will sleep
+	MaxCooldown = 3600
+	//DefaultCooldown Seconds a thread will sleep by default
+	DefaultCooldown = 60
+	//APIBaseThreadURL Usage: https://a.4cdn/[board]/thread/[threadnumber].json
+	APIBaseThreadURL = "https://a.4cdn.org/"
+	//ImageBaseURL Usage: https://i.4cdn.org/[board]/[filename]
+	ImageBaseURL = "https://i.4cdn.org/"
 )
 
 type Thread struct {
@@ -30,8 +34,8 @@ type Thread struct {
 	Cooldown    int64
 	LastPost    int
 	Dir         string
-	Id          int
-	SemanticUrl string
+	ID          int
+	SemanticURL string `json"semantic_url"`
 }
 
 type Post struct {
@@ -97,10 +101,6 @@ func downloadImages(t *Thread, start int) {
 			if len(img) != 0 {
 
 				path := strings.Join([]string{t.Dir, "\\", strconv.FormatInt(p.Tim, 10), p.Ext}, "")
-				/*if file, e := os.Open(path); e != nil {
-					fmt.Println(file.Name)
-					continue
-				}*/
 				err := ioutil.WriteFile(path, img, 0644)
 
 				if err != nil {
@@ -119,21 +119,21 @@ func downloadImages(t *Thread, start int) {
 
 	}
 
-	fmt.Println("Done downloading images from thread", t.Id, "\n")
+	fmt.Println("Done downloading images from thread", t.ID, "\n")
 
 }
 
 //Creates complete Go Thread structure by parsing JSON object from url and adding more info
-func get_Thread(url string) (thread *Thread, json string) {
+func getThread(url string) (thread *Thread, json string) {
 
 	tmp := strings.Split(url, "/")
 
 	thread = new(Thread)
-	thread.Id, _ = strconv.Atoi(tmp[5])
+	thread.ID, _ = strconv.Atoi(tmp[5])
 	thread.Board = tmp[3]
-	thread.Cooldown = DEFAULT_COOLDOWN
+	thread.Cooldown = DefaultCooldown
 
-	json = strings.Join([]string{ApiBaseThreadURL, strings.Join(tmp[3:6], "/"), ".json"}, "")
+	json = strings.Join([]string{APIBaseThreadURL, strings.Join(tmp[3:6], "/"), ".json"}, "")
 	fmt.Println("Json url", json)
 	fmt.Println("Reading url")
 	jsonObj, lastMod := readURL(json)
@@ -170,7 +170,7 @@ func update(json string, thread *Thread) {
 			fmt.Println("# of deleted posts:", numDelPosts, "\n")
 		} else if t.Posts[t.LastPost].No == thread.Posts[thread.LastPost].No {
 			fmt.Println("Threads are identical, update indicator was wrong")
-			thread.Cooldown = MAX_COOLDOWN
+			thread.Cooldown = MaxCooldown
 			return
 		}
 
@@ -277,7 +277,7 @@ func main() {
 				fmt.Println("Url is:", url)
 				fmt.Println("Directory is:", dir, "\n")
 
-				thread, json := get_Thread(url)
+				thread, json := getThread(url)
 				thread.Dir = dir
 
 				downloadImages(thread, 0)
@@ -287,9 +287,9 @@ func main() {
 
 				for !dead {
 
-					fmt.Println("Thread", thread.SemanticUrl, "is sleeping for", thread.Cooldown, "seconds\n")
+					fmt.Println("Thread", thread.SemanticURL, "is sleeping for", thread.Cooldown, "seconds\n")
 					time.Sleep(time.Duration(thread.Cooldown) * time.Second)
-					fmt.Println("Thread", thread.SemanticUrl, "woke up")
+					fmt.Println("Thread", thread.SemanticURL, "woke up")
 
 					req, err := http.NewRequest("GET", url, nil)
 					if err != nil {
@@ -308,7 +308,7 @@ func main() {
 					fmt.Println("Status code for request response:", r.StatusCode)
 					switch sc := r.StatusCode; sc {
 					case 404:
-						fmt.Println("Thread", thread.SemanticUrl, "died at time: ", time.Now())
+						fmt.Println("Thread", thread.SemanticURL, "died at time: ", time.Now())
 
 						if wantDupes {
 							checkDupes(thread.Dir)
@@ -318,19 +318,19 @@ func main() {
 						dead = true
 
 					case 304:
-						fmt.Println("Nothing new for thread", thread.SemanticUrl)
+						fmt.Println("Nothing new for thread", thread.SemanticURL)
 						thread.TimeRcv = r.Header.Get("Last-Modified")
 
-						if tc := thread.Cooldown * 2; tc > MAX_COOLDOWN {
+						if tc := thread.Cooldown * 2; tc > MaxCooldown {
 							fmt.Println("Time is now:", time.Now())
-							thread.Cooldown = MAX_COOLDOWN
+							thread.Cooldown = MaxCooldown
 						} else {
 							thread.Cooldown = tc
 						}
 
 					case 200:
-						fmt.Println("Thread", thread.SemanticUrl, "has been updated")
-						thread.Cooldown = DEFAULT_COOLDOWN
+						fmt.Println("Thread", thread.SemanticURL, "has been updated")
+						thread.Cooldown = DefaultCooldown
 						update(json, thread)
 
 					default:
@@ -339,7 +339,7 @@ func main() {
 
 				}
 
-				fmt.Println("Goodbye thread", thread.SemanticUrl, "\n")
+				fmt.Println("Goodbye thread", thread.SemanticURL, "\n")
 
 			}(url, dir)
 
