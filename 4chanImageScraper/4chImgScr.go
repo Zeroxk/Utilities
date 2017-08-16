@@ -262,6 +262,7 @@ func main() {
 		dir = strings.Trim(dir, "\n")
 		dir = strings.TrimSpace(dir)
 		dir = filepath.FromSlash(dir)
+
 		if !strings.HasSuffix(dir, string(os.PathSeparator)) {
 			dir += string(os.PathSeparator)
 		}
