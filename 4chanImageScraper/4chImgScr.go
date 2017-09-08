@@ -263,13 +263,13 @@ func main() {
 		dir = strings.TrimSpace(dir)
 		dir = filepath.FromSlash(dir)
 
-		if !strings.HasSuffix(dir, string(os.PathSeparator)) {
-			dir += string(os.PathSeparator)
-		}
-
 		if url == "" && dir == "" {
 			fmt.Println("Empty inputs, stopping program")
 			break
+		}
+
+		if !strings.HasSuffix(dir, string(os.PathSeparator)) {
+			dir += string(os.PathSeparator)
 		}
 
 		if validURL(url) && validPath(dir) {
